@@ -1,0 +1,31 @@
+{
+  "name": "multilocalprimus",
+  "version": "0.0.1",
+  "description": "Fork of metroplex to allow multiple primus instances on the same server . Eg Cluster Using PM2",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/btsantos/multilocalprimus"
+  },
+  "keywords": [
+    "primus",
+    "distributed",
+    "scale",
+    "real-time",
+    "local"
+  ],
+  "author": "Bruno Santos",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/btsantos/multilocalprimus/issues"
+  },
+  "dependencies": {
+    "eventemitter3": "^1.1.1",
+    "fusing": "^1.0.0",
+    "ioredis": "^1.10.0",
+    "ip": "^1.0.2"
+  }
+}
+
+
