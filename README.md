@@ -4,7 +4,7 @@ First Version, ... in dev ...
 
 ## Installation
 
-Metroplex is released in the npm registry and can therefor be installed using:
+Multilocalprimus install using:
 
 ```
 npm install --save multilocalprimus
