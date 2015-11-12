@@ -27,7 +27,9 @@ function Multilocalprimus(primus, options) {
   options = options || {};
   primus = primus || {};
   
-  this.pid = options.pid || +new Date();
+  this.pid = options.pid || process.pid;
+  this.fulladdress;
+  this.serveraddress;
  
   var lua = fs.readFileSync(path.join(__dirname, 'redis/annihilate.lua'), 'utf8')
     , parsed = this.parse(primus.server);
@@ -40,6 +42,7 @@ function Multilocalprimus(primus, options) {
   this.timeout = options.timeout || 30 * 60;
   this.latency = options.latency || 2000;
 
+  this.initserver();
   this.redis.defineCommand('annihilate', {
     lua: lua.replace('{leverage::namespace}', this.namespace),
     numberOfKeys: 1
@@ -74,6 +77,46 @@ function Multilocalprimus(primus, options) {
 
 fuse(Multilocalprimus, require('eventemitter3'));
 
+
+Multilocalprimus.readable('is_runningPid', function is_runningPid(pid) {
+    try {
+        return process.kill(pid,0);
+    }catch (e) {
+        return e.code === 'EPERM';
+    }
+});
+/**
+ * Clear register from local server not running.
+ *
+ * @api private
+ */
+Multilocalprimus.readable('initserver', function initserver() {
+    var multilocalprimus = this;
+    var _key = multilocalprimus.namespace+'fullservers'; 
+    multilocalprimus.redis.hkeys(_key, function hkeys(err, keys) {
+      if (err) return multilocalprimus.emit('error', err);
+      (keys || []).filter(function filter(key) {
+        var parts = key.split('@');
+        var ipport = parts[0];
+        var pid = parts[1];
+        if(multilocalprimus.is_runningPid(pid)===false){
+            multilocalprimus.redis.hdel(_key, key, function(err, resp){
+                if (err) return multilocalprimus.emit('error', err);
+                multilocalprimus.redis.annihilate(key, function annihilate(err) {
+                    if (err) return multilocalprimus.emit('error', err);
+                    multilocalprimus.redis.keys(multilocalprimus.namespace+key+'*', function keys(err, keys) {
+                        if (err) return multilocalprimus.emit('error', err);
+                        (keys || []).filter(function filter(key) {
+                            multilocalprimus.redis.del(key);
+                        });
+                    });
+                });
+            });
+        }
+      });
+    });
+});
+
 /**
  * Parse our the connection URL from a given HTTP server instance or string.
  *
@@ -100,7 +143,10 @@ Multilocalprimus.readable('parse', function parse(server) {
   if (address.address === '0.0.0.0' || address.address === '::') {
     address.address = ip.address();
   }
-  return address.address +':'+ address.port+'@'+pid;
+  var localaddress = address.address +':'+ address.port;
+  this.serveraddress = address.address;
+  this.fulladdress = 'http'+ (secure ? 's' : '') +'://'+ localaddress;
+  return localaddress+'@'+pid;
 });
 
 /**
@@ -126,10 +172,16 @@ Multilocalprimus.readable('register', function register(address, fn) {
       if (fn) return fn(err);
       return multilocalprimus.emit('error', err);
     }
-
+/*
+  this.redis.multi()
+    .hset(this.namespace +'sparks', spark.id, this.address)
+    .sadd(this.namespace + this.address +':sparks', spark.id)
+  .exec(); 
+ */
     redis.multi()
       .psetex(multilocalprimus.namespace + multilocalprimus.address, multilocalprimus.interval, Date.now())
       .sadd(multilocalprimus.namespace +'servers', multilocalprimus.address)
+      .hset(multilocalprimus.namespace +'fullservers', multilocalprimus.address, multilocalprimus.fulladdress)
     .exec(function register(err) {
       if (err) {
         if (fn) return fn(err);
@@ -235,6 +287,64 @@ Multilocalprimus.readable('servers', function servers(self, fn) {
 
   return this;
 });
+/**
+ * Promise Get the proxywrite for a given local spark id.
+ *
+ * @param {String} id The spark id we want to retrieve.
+* @param {Function} fn Callback, must be set for external servers override "write function"
+ * @returns {Multilocalprimus}
+ * @api public
+ */
+Multilocalprimus.readable('proxyspark', function proxyspark(id, fn) {
+    var multilocalprimus = this;
+
+    var proxyspark={};
+    proxyspark.write = function(){};
+    try{ 
+        return Q.promise(function (done, fail) {
+            proxyspark={};
+            multilocalprimus.spark(id, function (err, defserver) {
+                if(typeof multilocalprimus.redis === 'object' && typeof multilocalprimus.redis.publish === 'function'){
+                    if( defserver === null ){ return done(null); }
+                    proxyspark.id = id;
+                    proxyspark.server = defserver;
+                    if(defserver.indexOf(multilocalprimus.serveraddress) !== -1){
+                        proxyspark.write = function(obj){
+                            multilocalprimus.redis.publish(multilocalprimus.namespace+defserver+'sub',JSON.stringify({obj:obj,id:id,server:defserver}));
+                        }
+                        done(proxyspark);
+                    }else{
+                        multilocalprimus.redis.hget(multilocalprimus.namespace +'fullservers', defserver, function(err, resp){
+                            if (err) {
+                                fail(err);
+                                return multilocalprimus.emit('error', err);
+                            }
+                            proxyspark.RemotServer = resp;
+                            if(typeof fn === 'function'){
+                                proxyspark.write = fn;
+                            }
+                            return done(proxyspark);
+                        });
+                    }
+                }else{
+                    done(proxyspark);
+                }
+            });
+        }).then(function(_proxyspark){
+            return _proxyspark;
+        });
+    }catch(e){
+        if (err) return multilocalprimus.emit('error', err);
+        return proxyspark;
+    }
+    
+    return this;
+});
+
+
+
+
+
 
 /**
  * Get the server address for a given spark id.

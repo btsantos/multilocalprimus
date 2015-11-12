@@ -15,7 +15,9 @@
     "real-time",
     "local"
   ],
-  "author": "Bruno Santos",
+  "author": {
+    "name": "Bruno Santos"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/btsantos/multilocalprimus/issues"
@@ -24,7 +26,8 @@
     "eventemitter3": "^1.1.1",
     "fusing": "^1.0.0",
     "ioredis": "^1.10.0",
-    "ip": "^1.0.2"
+    "ip": "^1.0.2",
+    "q": "^1.4.1"
   }
 }
 

@@ -67,6 +67,30 @@ var sendToMultiLocalPrimus = function(id){
 }
 ```
 
+#### multilocalprimus.proxyspark
+
+```js
+var sendToMultiLocalPrimus = function(id){
+    var proxyspark={};
+    proxyspark.write = function(){};
+
+    try{ 
+        return primus.multilocalprimus.proxyspark(id)
+        .then(function(resp){
+            if(resp===null){
+                return proxyspark;
+            }else{
+                return resp;
+            }
+        }).fail(function(error){
+            throw error;
+        });
+    }catch(e){
+        return proxyspark;
+    }
+}
+```
+
 ## License
 
 [MIT](LICENSE)
