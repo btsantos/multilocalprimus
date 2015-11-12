@@ -68,7 +68,7 @@ var sendToMultiLocalPrimus = function(id){
 ```
 
 #### multilocalprimus.proxyspark
-
+fn Callback, must be set for external servers override "write function"
 ```js
 var sendToMultiLocalPrimus = function(id){
     var proxyspark={};
