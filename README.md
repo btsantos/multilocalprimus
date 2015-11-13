@@ -91,6 +91,34 @@ var sendToMultiLocalPrimus = function(id){
 }
 ```
 
+###### using the spark
+**Original spark -** Execute write action
+```js
+_spark.write(data_to_send);
+```
+**Proxy spark -** Publish write action to correct service to be executed
+```js
+_spark.write(data_to_send);
+```
+*same as*
+```js
+multilocalprimus.redis.publish('subscribe',stringify({action:'write', obj:data_to_send,id:sparkId,server:'address:port'}));
+```
+###### using the streams
+**Original streams -** Execute write action
+```js
+_spark.streams[streamId].write(data_to_send);
+```
+**Proxy streams -** Publish write action to correct service to be executed
+```js
+_spark.streamswrite(data_to_send, streamId);
+```
+*same as*
+```js
+multilocalprimus.redis.publish('subscribe',stringify({action:'streamswrite',substreamId:streamId, obj:data_to_send,id:sparkId,server:'address:port'}));
+```
+                    
+
 ## License
 
 [MIT](LICENSE)
