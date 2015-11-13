@@ -60,12 +60,20 @@ function Multilocalprimus(primus, options) {
         var id = message.id;
         var server = message.server;
         var towrite = message.obj;
+        var action = message.action || null;
+        var substreamId = message.substreamId || null;
         if(channel.indexOf(server) !== -1){
             var _spark = primus.spark(id);
-            if(_spark === undefined ){
-                console.error('No Spark Id:%d ToServer %d. On channel %d',id,server,channel);
+            if(_spark === undefined || action === null){
+                console.error('No Spark Id:%s ToServer %s. On channel %s. Action %s',id,server,channel, action);
             }else{    
+                if(action === 'write'){
                 _spark.write(towrite);
+                }else if(action === 'streamswrite'){
+                    if(substreamId && _spark.streams[substreamId]){
+                        _spark.streams[substreamId].write(towrite);
+                    }
+                }
             }
         }
     });
@@ -300,6 +308,7 @@ Multilocalprimus.readable('proxyspark', function proxyspark(id, fn) {
 
     var proxyspark={};
     proxyspark.write = function(){};
+    proxyspark.streamswrite = function(){};
     try{ 
         return Q.promise(function (done, fail) {
             proxyspark={};
@@ -310,7 +319,10 @@ Multilocalprimus.readable('proxyspark', function proxyspark(id, fn) {
                     proxyspark.server = defserver;
                     if(defserver.indexOf(multilocalprimus.serveraddress) !== -1){
                         proxyspark.write = function(obj){
-                            multilocalprimus.redis.publish(multilocalprimus.namespace+defserver+'sub',JSON.stringify({obj:obj,id:id,server:defserver}));
+                            multilocalprimus.redis.publish(multilocalprimus.namespace+defserver+'sub',JSON.stringify({action:'write', obj:obj,id:id,server:defserver}));
+                        }
+                        proxyspark.streamswrite = function(obj,substream){
+                            multilocalprimus.redis.publish(multilocalprimus.namespace+defserver+'sub',JSON.stringify({action:'streamswrite',substreamId:substream, obj:obj,id:id,server:defserver}));
                         }
                         done(proxyspark);
                     }else{
